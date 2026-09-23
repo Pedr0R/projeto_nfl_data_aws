@@ -29,9 +29,13 @@ em cima dessa base.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Camada de apresentação (UI)                             │
+│  Frontend (React + TypeScript)                           │
 │  F2 Dashboard · F3 Ficha · F4 Comparação · F5 Explorer   │
 │  F6 Animação · F7 Rankings · F8 Filtros                  │
+├─────────────────────────────────────────────────────────┤
+│  API REST (FastAPI)                                      │
+│  endpoints por jogador / jogada / matchup / ranking      │
+│  serialização (Pydantic) · filtros contextuais (F8)      │
 ├─────────────────────────────────────────────────────────┤
 │  Camada de métricas (feature store)                      │
 │  métricas por jogador / jogada / matchup                 │
@@ -40,6 +44,10 @@ em cima dessa base.
 │  joins: games · plays · players · pff · tracking         │
 └─────────────────────────────────────────────────────────┘
 ```
+
+O backend (FastAPI) expõe a camada de métricas via API REST; o frontend (React)
+consome esses endpoints. A comunicação é sempre por JSON, com os filtros globais
+(F8) trafegando como query params / corpo de request compartilhado.
 
 ### Modelo relacional (chaves de join)
 
@@ -81,6 +89,8 @@ por todas as features.
 ### Entradas → saídas
 - Entrada: `data/*.csv`.
 - Saída: tabelas normalizadas (Parquet/DuckDB/SQLite) + agregados em cache.
+- Consumo: a camada de dados é acessada pelo backend FastAPI, que serve os
+  agregados às telas via endpoints REST (nenhum CSV é lido diretamente no front).
 
 ---
 
@@ -188,8 +198,10 @@ por todas as features.
 - Coordenadas já normalizadas por `playDirection` (via F1).
 
 ### Requisitos não-funcionais
-- Renderização fluida de uma jogada (dezenas a centenas de frames).
-- Carregar tracking só da jogada aberta (não do arquivo inteiro).
+- Renderização fluida de uma jogada (dezenas a centenas de frames) no cliente
+  React (canvas/SVG ou lib de visualização como D3/Canvas).
+- Backend serve os frames da jogada aberta via endpoint dedicado; o front recebe
+  só o tracking daquela jogada (não o arquivo inteiro) e anima localmente.
 
 > Nota: animação básica é commodity no ecossistema Big Data Bowl. O valor vem de
 > sobrepor as métricas dos diferenciais (ver seção final).
@@ -271,9 +283,18 @@ combinada em ferramentas públicas.
 ## Stack e priorização
 
 ### Stack sugerida
-- **Dados:** Python + pandas + DuckDB (ou Parquet) para a camada F1.
-- **UI:** Streamlit (mais rápido para hackathon) — cobre F2-F8.
-- **Animação (F6):** Plotly/matplotlib animation; alternativa em Altair para 2D.
+- **Dados (camada F1):** Python + pandas + DuckDB (ou Parquet) para ingestão,
+  normalização e feature store.
+- **Backend / API:** FastAPI (Python) expondo a camada de métricas via REST,
+  com Pydantic para os schemas de resposta e Uvicorn como servidor ASGI.
+- **Frontend / UI:** React + TypeScript (cobre F2-F8), consumindo a API por
+  `fetch`/axios; gráficos com uma lib de charting (ex.: Recharts/Visx/D3).
+- **Animação (F6):** renderização 2D no cliente React via Canvas ou SVG (D3),
+  animando frame a frame o tracking servido pelo endpoint da jogada.
+
+O backend e o frontend são projetos separados (ex.: `backend/` e `frontend/`),
+comunicando-se por JSON. Isso mantém a camada de dados desacoplada da UI e
+permite evoluir cada lado independentemente.
 
 ### Ordem de implementação (MVP → diferencial)
 1. **F1** (bloqueia todo o resto) — obrigatório primeiro.
