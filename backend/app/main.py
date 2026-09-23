@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, stats
+from app.api import health, players, rankings, stats
 from app.core.config import settings
 from app.data import loader
 
@@ -49,6 +49,8 @@ app.add_middleware(
 # Routers da API (prefixo /api). Novos routers das Fases 1+ entram aqui.
 app.include_router(health.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
+app.include_router(players.router, prefix="/api")
+app.include_router(rankings.router, prefix="/api")
 
 
 @app.get("/", include_in_schema=False)

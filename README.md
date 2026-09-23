@@ -101,6 +101,18 @@ inicialização e expõe as contagens em `GET /api/stats`.
 - **Fase 0 (fundação):** monorepo, CORS, `/api/health`, tela inicial do frontend. ✓
 - **Fase 1 (camada de dados F1):** ingestão + normalização em DuckDB, tabelas
   derivadas, leitor de tracking por jogada, `/api/stats`, testes de sanidade. ✓
+- **Fase 2 (métricas base + F3 + F7):** endpoints de jogadores e rankings. ✓
 
-Próxima etapa: **Fase 2 — métricas base + API de ficha e ranking (F3 + F7)**
-(ver [plano de implementação](features/plano_implementacao.md)).
+### Endpoints (Fase 2)
+
+- `GET /api/players?search=&limit=&offset=` — busca/listagem de jogadores.
+- `GET /api/players/{nflId}` — ficha consolidada (painel de rusher e/ou blocador
+  conforme o papel; splits por alinhamento e cobertura; uso por tipo de bloqueio).
+- `GET /api/rankings?metric=&min_snaps=&limit=` — leaderboards por métrica com
+  snap threshold. `GET /api/rankings/metrics` lista as métricas disponíveis.
+
+> Nota: o frontend (F2/dashboard e telas) fica fora deste repositório por decisão
+> de escopo — aqui é backend + dados.
+
+Próxima etapa: **Fase 3 — filtros contextuais globais (F8)** aplicados aos
+endpoints (ver [plano de implementação](features/plano_implementacao.md)).
