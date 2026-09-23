@@ -18,15 +18,32 @@ py -m venv .venv
 
 ```
 app/
-├── main.py       # instancia FastAPI, CORS, registra routers
+├── main.py       # instancia FastAPI, CORS, lifespan (build F1), registra routers
 ├── core/         # config (pydantic-settings)
-├── api/          # routers por domínio (health e, nas próximas fases, players/plays/…)
+├── api/          # routers por domínio (health, stats e, nas próximas fases, players/plays/…)
 ├── schemas/      # modelos Pydantic (contrato de resposta)
-├── data/         # (Fase 1) ingestão, normalização, conexão DuckDB
-├── features/     # (Fase 1+) cálculo de métricas / feature store
+├── data/         # camada F1: DuckDB, normalização, tabelas derivadas, tracking
+│   ├── database.py   # conexão + ingestão dos CSVs base (normalizados)
+│   ├── normalize.py  # funções puras de normalização (gameClock, height, coords)
+│   ├── derived.py    # player_play, matchup, player_season
+│   ├── tracking.py   # leitura de tracking por jogada (sob demanda)
+│   ├── schema.py     # colunas esperadas + constantes do campo
+│   └── loader.py     # orquestra o build (idempotente); CLI: python -m app.data.loader
+├── features/     # (Fase 2+) cálculo de métricas / feature store
 └── services/     # (Fase 2+) regras de negócio entre data e api
-tests/            # testes de contrato e de métricas
+tests/            # testes de contrato, normalização e sanidade da camada de dados
 ```
+
+## Camada de dados (F1)
+
+```powershell
+# (re)construir a camada normalizada + derivada em DuckDB (idempotente)
+.\.venv\Scripts\python.exe -m app.data.loader --stats
+```
+
+O DuckDB fica em `backend/.data/nfl_scout.duckdb` (não versionado). Os testes de
+sanidade em `tests/test_data_layer.py` são pulados se o dataset não estiver
+presente.
 
 ## Configuração
 

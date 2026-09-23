@@ -29,5 +29,12 @@ class Settings(BaseSettings):
     # Aponta, por padrão, para o repositório do dataset ao lado deste projeto.
     data_dir: Path = REPO_ROOT.parent / "nfl-big-data-bowl-regional-event-data" / "data"
 
+    # Arquivo DuckDB persistente com as tabelas normalizadas + derivadas.
+    duckdb_path: Path = REPO_ROOT / "backend" / ".data" / "nfl_scout.duckdb"
+
+    @property
+    def tracking_dir(self) -> Path:
+        return self.data_dir / "tracking"
+
 
 settings = Settings()

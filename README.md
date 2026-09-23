@@ -81,8 +81,26 @@ cd frontend
 npm run build
 ```
 
+## Camada de dados (F1)
+
+A camada normalizada + derivada é materializada em DuckDB a partir dos CSVs.
+Construir/reconstruir (idempotente):
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.data.loader --stats
+```
+
+Tabelas geradas: `games`, `players`, `plays`, `pff` (base normalizada) e
+`player_play`, `matchup`, `player_season` (derivadas). O tracking é lido sob
+demanda por jogada (não é ingerido). A API também constrói a camada na
+inicialização e expõe as contagens em `GET /api/stats`.
+
 ## Status atual
 
-**Fase 0 (fundação) concluída:** monorepo, CORS, endpoint `/api/health` e a tela
-inicial do frontend consumindo esse endpoint. Próxima etapa: **Fase 1 — camada de
-dados (F1)** (ver plano de implementação).
+- **Fase 0 (fundação):** monorepo, CORS, `/api/health`, tela inicial do frontend. ✓
+- **Fase 1 (camada de dados F1):** ingestão + normalização em DuckDB, tabelas
+  derivadas, leitor de tracking por jogada, `/api/stats`, testes de sanidade. ✓
+
+Próxima etapa: **Fase 2 — métricas base + API de ficha e ranking (F3 + F7)**
+(ver [plano de implementação](features/plano_implementacao.md)).

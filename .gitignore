@@ -5,6 +5,7 @@
 *.parquet
 *.duckdb
 *.duckdb.wal
+backend/.data/
 
 # ─── Python / backend ───
 __pycache__/
