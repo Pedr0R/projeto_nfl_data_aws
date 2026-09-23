@@ -6,6 +6,7 @@ de dados em **Python + pandas + DuckDB**.
 
 - Design das features: [`features/features_gerais.md`](features/features_gerais.md)
 - Plano de implementação: [`features/plano_implementacao.md`](features/plano_implementacao.md)
+- Plano de execução paralela (2 agentes back/front): [`features/plano_paralelo.md`](features/plano_paralelo.md)
 
 ## Estrutura
 

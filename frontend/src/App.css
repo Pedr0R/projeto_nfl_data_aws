@@ -1,7 +1,13 @@
 .app {
-  max-width: 720px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 3rem 1.5rem;
+}
+
+.header {
+  border-bottom: 2px solid #2563eb;
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 h1 {
@@ -13,12 +19,73 @@ h1 {
   margin-top: 0;
 }
 
+/* ─── Abas de persona ─── */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.tab {
+  padding: 0.6rem 1.4rem;
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+  background: #171a21;
+  color: #cbd5e1;
+  font-weight: 500;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tab:hover {
+  background: #1f2430;
+}
+
+.tab-active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* ─── Grid de cards ─── */
+.card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
 .card {
   border: 1px solid #2a2f3a;
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   background: #171a21;
-  margin-top: 1.5rem;
+}
+
+.field {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #21262f;
+}
+
+.field:last-child {
+  border-bottom: none;
+}
+
+.field-label {
+  color: #9aa4b2;
+  text-transform: capitalize;
+  font-size: 0.85rem;
+}
+
+.field-value {
+  color: #f1f5f9;
+  font-weight: 600;
+  text-align: right;
 }
 
 .muted {

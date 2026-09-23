@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Arquivo DuckDB persistente com as tabelas normalizadas + derivadas.
     duckdb_path: Path = REPO_ROOT / "backend" / ".data" / "nfl_scout.duckdb"
 
+    # CSV "achatado" do dashboard por persona. Se o arquivo não existir, o
+    # service cai num mock de fallback. Futuramente virá das métricas reais.
+    dashboard_csv: Path = REPO_ROOT / "backend" / "app" / "data" / "nfl_data.csv"
+
     @property
     def tracking_dir(self) -> Path:
         return self.data_dir / "tracking"

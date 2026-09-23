@@ -22,3 +22,16 @@ export interface HealthResponse {
 export function getHealth(): Promise<HealthResponse> {
   return apiGet<HealthResponse>("/health");
 }
+
+// ─── Dashboard por persona ───
+
+export type RoleEnum = "broadcaster" | "scout" | "coach" | "fan";
+
+export const ROLES: RoleEnum[] = ["broadcaster", "scout", "coach", "fan"];
+
+/** Uma linha do dashboard: o formato muda por persona, então tipamos genérico. */
+export type DashboardRow = Record<string, string | number>;
+
+export function fetchDashboardData(role: RoleEnum): Promise<DashboardRow[]> {
+  return apiGet<DashboardRow[]>(`/dashboard/${role}`);
+}

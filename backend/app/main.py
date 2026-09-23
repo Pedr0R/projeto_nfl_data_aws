@@ -10,9 +10,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, players, rankings, stats
+from app.api import dashboard, health, players, rankings, stats
 from app.core.config import settings
 from app.data import loader
+from app.services.dashboard import dashboard_repository
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -28,6 +29,8 @@ async def lifespan(_: FastAPI):
             "Defina NFL_DATA_DIR.",
             settings.data_dir,
         )
+    # Carrega o dataset do dashboard por persona (CSV achatado ou mock de fallback).
+    dashboard_repository.load()
     yield
 
 
@@ -51,6 +54,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(players.router, prefix="/api")
 app.include_router(rankings.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
 
 
 @app.get("/", include_in_schema=False)
