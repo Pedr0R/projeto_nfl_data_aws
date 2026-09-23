@@ -1,91 +1,43 @@
-import { useEffect, useState } from "react";
-import {
-  fetchDashboardData,
-  ROLES,
-  type DashboardRow,
-  type RoleEnum,
-} from "./api/client";
+import { useState } from "react";
+import DashboardView from "./components/DashboardView";
+import RankingsView from "./components/RankingsView";
+import FieldViewer from "./FieldViewer";
 import "./App.css";
 
+type View = "dashboard" | "rankings" | "field";
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "rankings", label: "Rankings + Filtros" },
+  { id: "field", label: "Campo" },
+];
+
 export default function App() {
-  const [activeRole, setActiveRole] = useState<RoleEnum>("broadcaster");
-  const [data, setData] = useState<DashboardRow[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchDashboardData(activeRole)
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeRole]);
+  const [view, setView] = useState<View>("rankings");
 
   return (
-    <div className="app">
+    <div className={`app ${view === "field" ? "app-wide" : ""}`}>
       <header className="header">
-        <h1>NFL Analytics Hub</h1>
-        <p className="subtitle">Distribuição de métricas por persona — Big Data Bowl 2023</p>
+        <h1>NFL Scout</h1>
+        <p className="subtitle">Análise de pass rush x proteção — Big Data Bowl 2023</p>
       </header>
 
-      <nav className="tabs">
-        {ROLES.map((role) => (
+      <nav className="view-tabs">
+        {VIEWS.map((v) => (
           <button
-            key={role}
+            key={v.id}
             type="button"
-            className={`tab ${activeRole === role ? "tab-active" : ""}`}
-            aria-pressed={activeRole === role}
-            onClick={() => setActiveRole(role)}
+            className={`view-tab ${view === v.id ? "view-tab-active" : ""}`}
+            onClick={() => setView(v.id)}
           >
-            {role}
+            {v.label}
           </button>
         ))}
       </nav>
 
-      <main>
-        {loading && <p className="muted">Buscando métricas…</p>}
-        {error && (
-          <div>
-            <p className="badge badge-error">Erro ao carregar dados</p>
-            <p className="muted">{error}</p>
-            <p className="muted">
-              A API está no ar? <code>cd backend; .venv\Scripts\uvicorn app.main:app --reload</code>
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && data.length === 0 && (
-          <p className="muted">Nenhum dado retornado da API.</p>
-        )}
-
-        {!loading && !error && data.length > 0 && (
-          <div className="card-grid">
-            {data.map((item, idx) => (
-              <article key={idx} className="card">
-                {Object.entries(item).map(([key, value]) => (
-                  <div key={key} className="field">
-                    <span className="field-label">{key.replace(/_/g, " ")}</span>
-                    <span className="field-value">{String(value)}</span>
-                  </div>
-                ))}
-              </article>
-            ))}
-          </div>
-        )}
-      </main>
+      {view === "dashboard" && <DashboardView />}
+      {view === "rankings" && <RankingsView />}
+      {view === "field" && <FieldViewer />}
     </div>
   );
 }

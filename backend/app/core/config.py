@@ -25,16 +25,10 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    # Caminho para os CSVs do dataset (usado a partir da Fase 1).
-    # Aponta, por padrão, para o repositório do dataset ao lado deste projeto.
+    # Caminho para os CSVs do dataset. Aponta, por padrão, para o repositório
+    # do dataset ao lado deste projeto. A camada de dados (DuckDB em memória) é
+    # materializada a partir destes CSVs no startup.
     data_dir: Path = REPO_ROOT.parent / "nfl-big-data-bowl-regional-event-data" / "data"
-
-    # Arquivo DuckDB persistente com as tabelas normalizadas + derivadas.
-    duckdb_path: Path = REPO_ROOT / "backend" / ".data" / "nfl_scout.duckdb"
-
-    # CSV "achatado" do dashboard por persona. Se o arquivo não existir, o
-    # service cai num mock de fallback. Futuramente virá das métricas reais.
-    dashboard_csv: Path = REPO_ROOT / "backend" / "app" / "data" / "nfl_data.csv"
 
     @property
     def tracking_dir(self) -> Path:

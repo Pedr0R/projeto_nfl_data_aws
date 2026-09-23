@@ -1,124 +1,156 @@
-"""Serviço de dados do dashboard por persona (Fase A).
+"""Serviço de dados do dashboard por persona.
 
-Carrega um CSV "achatado" (uma linha por jogador com todas as métricas de persona
-prontas). Se o arquivo não existir, usa um mock de fallback — útil para demo e
-testes sem depender do dataset real. Na Fase B, esta camada será substituída pela
-projeção das métricas reais calculadas a partir do DuckDB.
+Consome os dados REAIS do dataset (via tabelas derivadas em DuckDB, que por sua
+vez vêm dos CSVs em `data/`). Cada persona projeta um recorte diferente das
+métricas de pass rush x pass protection.
+
+- broadcaster: top pass rushers por pressão (destaques do jogo).
+- scout: avaliação técnica do rusher (win rate + taxa de pressão).
+- coach: eficiência de proteção dos bloqueadores.
+- fan: números diretos (sacks, pressões).
 """
 
 from __future__ import annotations
 
-import pandas as pd
+from app.data.database import get_connection
+from app.schemas.dashboard import (
+    BroadcasterMetric,
+    CoachMetric,
+    FanMetric,
+    RoleEnum,
+    ScoutMetric,
+)
 
-from app.core.config import settings
-from app.schemas.dashboard import ROLE_COLUMNS, RoleEnum
+# Mínimo de snaps para um jogador entrar em cada recorte (evita amostra pequena).
+MIN_RUSH_SNAPS = 100
+MIN_BLOCK_SNAPS = 150
 
-
-def _mock_dataframe() -> pd.DataFrame:
-    """Dados de exemplo usados quando o CSV do dashboard não está disponível."""
-    return pd.DataFrame(
-        [
-            {
-                "player_name": "Patrick Mahomes",
-                "position": "QB",
-                "team": "KC",
-                "college": "Texas Tech",
-                "play_description": "Pass 44-yd TD to deep right",
-                "catch_probability_pct": 28.4,
-                "time_to_throw_sec": 2.85,
-                "win_probability_pct": 74.2,
-                "max_speed_mph": 19.8,
-                "avg_separation_yds": 1.2,
-                "yacoe": 4.1,
-                "route_efficiency_index": 8.9,
-                "opponent_team": "SF",
-                "down_and_distance": "3rd & 8",
-                "personnel_grouping": "11 Personnel",
-                "blitz_pickup_rate_pct": 68.5,
-                "air_yards_to_sticks": 2.3,
-                "fantasy_points_projected": 24.8,
-                "touchdown_likelihood_pct": 85.0,
-                "highlight_moment": "Passe improvável de 40+ jardas sob pressão.",
-            },
-            {
-                "player_name": "Justin Jefferson",
-                "position": "WR",
-                "team": "MIN",
-                "college": "LSU",
-                "play_description": "Pass complete short left for 18 yds",
-                "catch_probability_pct": 62.1,
-                "time_to_throw_sec": 2.30,
-                "win_probability_pct": 55.0,
-                "max_speed_mph": 21.2,
-                "avg_separation_yds": 3.8,
-                "yacoe": 7.4,
-                "route_efficiency_index": 9.6,
-                "opponent_team": "GB",
-                "down_and_distance": "2nd & 4",
-                "personnel_grouping": "12 Personnel",
-                "blitz_pickup_rate_pct": 82.0,
-                "air_yards_to_sticks": -1.1,
-                "fantasy_points_projected": 19.5,
-                "touchdown_likelihood_pct": 60.0,
-                "highlight_moment": "Separação de 3.8 jardas contra cobertura mano a mano.",
-            },
-        ]
-    )
+# Quantidade de linhas por persona no dashboard.
+LIMIT = 25
 
 
-class DashboardRepository:
-    """Mantém o DataFrame do dashboard em memória e projeta por persona.
+def _pct(value: float | None) -> float:
+    """Converte taxa [0,1] em percentual arredondado; None vira 0.0."""
+    return round((value or 0.0) * 100, 1)
 
-    O dado é carregado uma vez (no startup, via lifespan) e reutilizado a cada
-    request. `load()` é idempotente.
-    """
 
-    def __init__(self) -> None:
-        self._df: pd.DataFrame | None = None
-        self._source: str = "uninitialized"
-
-    def load(self) -> None:
-        """Carrega o CSV do dashboard, ou cai no mock se o arquivo não existir."""
-        csv_path = settings.dashboard_csv
-        if csv_path.exists():
-            self._df = pd.read_csv(csv_path)
-            self._source = f"csv:{csv_path}"
-        else:
-            self._df = _mock_dataframe()
-            self._source = "mock"
-
-    @property
-    def source(self) -> str:
-        return self._source
-
-    @property
-    def is_loaded(self) -> bool:
-        return self._df is not None and not self._df.empty
-
-    def ensure_loaded(self) -> None:
-        """Carrega sob demanda caso o startup (lifespan) ainda não tenha rodado.
-
-        Torna o repositório resiliente em contextos que não disparam o lifespan
-        (ex.: TestClient usado fora de um `with`).
+def _broadcaster_rows(con) -> list[BroadcasterMetric]:
+    rows = con.execute(
         """
-        if self._df is None:
-            self.load()
+        SELECT display_name, position, pressures, sacks, pressure_rate
+        FROM player_season
+        WHERE rush_snaps >= ?
+        ORDER BY pressures DESC, pressure_rate DESC
+        LIMIT ?
+        """,
+        [MIN_RUSH_SNAPS, LIMIT],
+    ).fetchall()
+    return [
+        BroadcasterMetric(
+            player_name=r[0] or "—",
+            position=r[1] or "—",
+            pressures=r[2],
+            sacks=r[3],
+            pressure_rate_pct=_pct(r[4]),
+        )
+        for r in rows
+    ]
 
-    def rows_for_role(self, role: RoleEnum) -> list[dict]:
-        """Retorna as linhas projetadas apenas nas colunas da persona.
 
-        Levanta KeyError se o dataset não tiver as colunas esperadas — o router
-        traduz isso num 500 com mensagem clara.
+def _scout_rows(con) -> list[ScoutMetric]:
+    # win rate vem do matchup (rusher gerou hit/hurry/sack no par).
+    rows = con.execute(
         """
-        self.ensure_loaded()
-        if self._df is None or self._df.empty:
-            raise RuntimeError("Dataset do dashboard não carregado.")
-        columns = ROLE_COLUMNS[role]
-        missing = [c for c in columns if c not in self._df.columns]
-        if missing:
-            raise KeyError(f"Colunas ausentes no dataset para '{role.value}': {missing}")
-        return self._df[columns].to_dict(orient="records")
+        WITH win AS (
+            SELECT rusher_nfl_id AS nfl_id,
+                   COUNT(*) AS pairs,
+                   COUNT(*) FILTER (WHERE COALESCE(hit,false) OR COALESCE(hurry,false)
+                                          OR COALESCE(sack,false)) AS wins
+            FROM matchup
+            GROUP BY rusher_nfl_id
+        )
+        SELECT ps.display_name, ps.position, pl.college, ps.rush_snaps,
+               CASE WHEN w.pairs > 0 THEN w.wins::DOUBLE / w.pairs END AS win_rate,
+               ps.pressure_rate
+        FROM player_season ps
+        LEFT JOIN players pl ON ps.nfl_id = pl.nfl_id
+        LEFT JOIN win w      ON ps.nfl_id = w.nfl_id
+        WHERE ps.rush_snaps >= ?
+        ORDER BY win_rate DESC NULLS LAST, ps.pressure_rate DESC
+        LIMIT ?
+        """,
+        [MIN_RUSH_SNAPS, LIMIT],
+    ).fetchall()
+    return [
+        ScoutMetric(
+            player_name=r[0] or "—",
+            position=r[1] or "—",
+            college=r[2] or "—",
+            rush_snaps=r[3],
+            win_rate_pct=_pct(r[4]),
+            pressure_rate_pct=_pct(r[5]),
+        )
+        for r in rows
+    ]
 
 
-# Instância única compartilhada pela aplicação.
-dashboard_repository = DashboardRepository()
+def _coach_rows(con) -> list[CoachMetric]:
+    # Melhores protetores: menor taxa de pressão permitida.
+    rows = con.execute(
+        """
+        SELECT display_name, position, block_snaps, pressures_allowed,
+               pressure_allowed_rate, beaten_rate
+        FROM player_season
+        WHERE block_snaps >= ?
+        ORDER BY pressure_allowed_rate ASC NULLS LAST
+        LIMIT ?
+        """,
+        [MIN_BLOCK_SNAPS, LIMIT],
+    ).fetchall()
+    return [
+        CoachMetric(
+            player_name=r[0] or "—",
+            position=r[1] or "—",
+            block_snaps=r[2],
+            pressures_allowed=r[3],
+            pressure_allowed_rate_pct=_pct(r[4]),
+            beaten_rate_pct=_pct(r[5]),
+        )
+        for r in rows
+    ]
+
+
+def _fan_rows(con) -> list[FanMetric]:
+    rows = con.execute(
+        """
+        SELECT display_name, position, sacks, pressures
+        FROM player_season
+        WHERE rush_snaps >= ?
+        ORDER BY sacks DESC, pressures DESC
+        LIMIT ?
+        """,
+        [MIN_RUSH_SNAPS, LIMIT],
+    ).fetchall()
+    return [
+        FanMetric(
+            player_name=r[0] or "—",
+            position=r[1] or "—",
+            sacks=r[2],
+            pressures=r[3],
+        )
+        for r in rows
+    ]
+
+
+_BUILDERS = {
+    RoleEnum.BROADCASTER: _broadcaster_rows,
+    RoleEnum.SCOUT: _scout_rows,
+    RoleEnum.COACH: _coach_rows,
+    RoleEnum.FAN: _fan_rows,
+}
+
+
+def rows_for_role(role: RoleEnum) -> list:
+    """Retorna as linhas da persona, projetadas dos dados reais do DuckDB."""
+    con = get_connection()
+    return _BUILDERS[role](con)

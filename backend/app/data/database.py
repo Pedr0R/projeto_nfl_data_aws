@@ -53,13 +53,17 @@ def validate_csv_columns(con: duckdb.DuckDBPyConnection, path: Path, expected: l
 
 
 def get_connection() -> duckdb.DuckDBPyConnection:
-    """Retorna a conexão DuckDB (singleton de processo), criando-a se preciso."""
+    """Retorna a conexão DuckDB (singleton de processo), criando-a se preciso.
+
+    Usa banco EM MEMÓRIA: as tabelas são materializadas a partir dos CSVs em
+    `data/` a cada inicialização do processo. Não há arquivo `.duckdb` em disco,
+    o que elimina qualquer problema de lock de arquivo entre processos.
+    """
     global _conn
     if _conn is None:
         with _lock:
             if _conn is None:
-                settings.duckdb_path.parent.mkdir(parents=True, exist_ok=True)
-                _conn = duckdb.connect(str(settings.duckdb_path))
+                _conn = duckdb.connect(database=":memory:")
     return _conn
 
 

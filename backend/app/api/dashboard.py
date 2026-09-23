@@ -1,7 +1,7 @@
 """Router do dashboard por persona.
 
-Expõe `/api/dashboard/{role}`, retornando o recorte de métricas da persona
-escolhida (broadcaster, scout, coach, fan).
+Expõe `/api/dashboard/{role}`, retornando o recorte de métricas REAIS da persona
+escolhida (broadcaster, scout, coach, fan), calculado a partir do dataset.
 """
 
 from typing import List, Union
@@ -15,7 +15,7 @@ from app.schemas.dashboard import (
     RoleEnum,
     ScoutMetric,
 )
-from app.services.dashboard import dashboard_repository
+from app.services import dashboard as service
 
 router = APIRouter(tags=["dashboard"])
 
@@ -30,11 +30,11 @@ router = APIRouter(tags=["dashboard"])
     ],
 )
 def get_dashboard_data(role: RoleEnum):
-    """Retorna as métricas da persona. 503 se o dataset não estiver carregado."""
-    dashboard_repository.ensure_loaded()
-    if not dashboard_repository.is_loaded:
-        raise HTTPException(status_code=503, detail="Dataset do dashboard indisponível.")
+    """Retorna as métricas reais da persona. 503 se a camada de dados não existir."""
     try:
-        return dashboard_repository.rows_for_role(role)
-    except KeyError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        return service.rows_for_role(role)
+    except Exception as exc:  # ex.: tabelas não construídas ainda
+        raise HTTPException(
+            status_code=503,
+            detail=f"Camada de dados indisponível: {exc}",
+        ) from exc
